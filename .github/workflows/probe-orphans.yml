@@ -2,6 +2,7 @@ name: Probe orphan blobs
 on:
   push:
     branches: [agent/ghostit-1.9-voice-synth]
+  pull_request:
 permissions:
   contents: read
 jobs:
