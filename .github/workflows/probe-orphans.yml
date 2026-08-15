@@ -1,0 +1,24 @@
+name: Probe orphan blobs
+on:
+  push:
+    branches: [agent/ghostit-1.9-voice-synth]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect blobs
+        run: |
+          set -eux
+          file .probe/* || true
+          for f in .probe/*; do echo "=== $f ==="; wc -c "$f"; xxd -l 32 "$f"; done
+          cat .probe/* > /tmp/joined || true
+          echo '=== joined ==='
+          file /tmp/joined || true
+          wc -c /tmp/joined || true
+          unzip -t /tmp/joined || true
+          tar -tf /tmp/joined >/tmp/tarlist 2>/tmp/tarerr || true
+          head -40 /tmp/tarlist || true
+          cat /tmp/tarerr || true
