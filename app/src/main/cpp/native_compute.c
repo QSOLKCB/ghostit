@@ -16,7 +16,7 @@ static uint64_t seed_hash(const char* s) {
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_osv01d_client_nativecore_NativeCompute_mine(JNIEnv* env, jobject thiz, jstring seed, jint iterations) {
+Java_com_osv01d_client_nativecore_NativeTopologyCompute_mine(JNIEnv* env, jobject thiz, jstring seed, jint iterations) {
   (void)thiz;
   const char* chars = (*env)->GetStringUTFChars(env, seed, NULL);
   if (!chars) return NULL;

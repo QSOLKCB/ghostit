@@ -2,7 +2,7 @@
 #include "iree/runtime/api.h"
 
 JNIEXPORT jstring JNICALL
-Java_com_osv01d_client_nativecore_NativeCompute_ireeProbe(JNIEnv* env, jobject thiz) {
+Java_com_osv01d_client_nativecore_NativeIreeRuntime_ireeProbe(JNIEnv* env, jobject thiz) {
   (void)thiz;
   iree_runtime_instance_options_t instance_options;
   iree_runtime_instance_options_initialize(&instance_options);

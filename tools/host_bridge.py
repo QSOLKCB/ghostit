@@ -5,7 +5,7 @@ Default mode is loopback-only, bearer-authenticated, and IDE-command restricted.
 Pass --unrestricted to allow arbitrary argv. Commands are never executed through a shell.
 """
 from __future__ import annotations
-import argparse, json, os, secrets, shlex, subprocess, sys, time
+import argparse, json, os, secrets, shlex, shutil, socket, subprocess, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -16,6 +16,7 @@ class State:
     unrestricted = False
     workspace = Path.cwd().resolve()
     audit = Path.home() / ".ghostit" / "host-audit.jsonl"
+    trusted_executables: dict[str, str] = {}
 
     @classmethod
     def record(cls, payload: dict) -> None:
@@ -51,9 +52,15 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length) or b"{}")
             argv = shlex.split(str(body.get("command", "")))
             if not argv: return self.reply(400, ok=False, message="command required")
-            exe = Path(argv[0]).name
-            if not State.unrestricted and exe not in ALLOWED:
-                return self.reply(403, ok=False, message=f"restricted mode allows only IDE/open commands: {sorted(ALLOWED)}")
+            if not State.unrestricted:
+                requested = argv[0]
+                if Path(requested).name != requested or "/" in requested or "\\" in requested:
+                    return self.reply(403, ok=False, message="restricted mode rejects executable paths; use a trusted IDE/open command name")
+                trusted = State.trusted_executables.get(requested)
+                if not trusted:
+                    return self.reply(403, ok=False, message=f"restricted mode allows only installed IDE/open commands: {sorted(State.trusted_executables)}")
+                # Freeze restricted commands to the executable resolved when the bridge started.
+                argv[0] = trusted
             cwd = Path(body.get("cwd") or State.workspace).expanduser().resolve()
             if not State.unrestricted and not within_workspace(cwd):
                 return self.reply(403, ok=False, message="cwd escapes configured workspace")
@@ -65,6 +72,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(408, ok=False, message="command timed out after 120 seconds")
         except Exception as exc:
             return self.reply(400, ok=False, message=f"{type(exc).__name__}: {exc}")
+
+class IPv6ThreadingHTTPServer(ThreadingHTTPServer):
+    address_family = socket.AF_INET6
 
 def main():
     p = argparse.ArgumentParser()
@@ -80,9 +90,17 @@ def main():
     State.token = args.token or secrets.token_urlsafe(32)
     State.unrestricted = args.unrestricted
     State.workspace = Path(args.workspace).expanduser().resolve()
+    State.trusted_executables = {
+        name: str(Path(found).resolve())
+        for name in ALLOWED
+        if (found := shutil.which(name)) is not None
+    }
     print(f"GhostIT host bridge: http://{args.bind}:{args.port} mode={'UNRESTRICTED' if args.unrestricted else 'IDE_ONLY'}")
     print(f"token={State.token}")
+    if not args.unrestricted:
+        print(f"trusted executables={State.trusted_executables}")
     print("Android USB: adb reverse tcp:8765 tcp:8765")
-    ThreadingHTTPServer((args.bind, args.port), Handler).serve_forever()
+    server_cls = IPv6ThreadingHTTPServer if ":" in args.bind else ThreadingHTTPServer
+    server_cls((args.bind, args.port), Handler).serve_forever()
 
 if __name__ == "__main__": main()

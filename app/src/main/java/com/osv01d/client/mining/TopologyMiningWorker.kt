@@ -12,13 +12,18 @@ class TopologyMiningWorker(appContext: Context, params: WorkerParameters) : Work
         if (!manual && !prefs.getBoolean(MiningController.KEY_ENABLED, false)) return Result.success()
 
         val iterations = MiningPolicy.clampIterations(inputData.getInt("iterations", MiningPolicy.DEFAULT_ITERATIONS))
-        val sequence = prefs.getLong(MiningController.KEY_SEQUENCE, 0L) + 1L
+        val sequence = synchronized(sequenceLock) {
+            val next = prefs.getLong(MiningController.KEY_SEQUENCE, 0L) + 1L
+            if (!prefs.edit().putLong(MiningController.KEY_SEQUENCE, next).commit()) return Result.failure()
+            next
+        }
         val seed = "ghostit-topology-$sequence"
         val output = runCatching { NativeCompute.mine(seed, iterations) }.getOrElse { return Result.failure() }
-        prefs.edit()
-            .putLong(MiningController.KEY_SEQUENCE, sequence)
-            .putString(MiningController.KEY_LAST, output)
-            .apply()
+        prefs.edit().putString(MiningController.KEY_LAST, output).apply()
         return Result.success()
+    }
+
+    companion object {
+        private val sequenceLock = Any()
     }
 }

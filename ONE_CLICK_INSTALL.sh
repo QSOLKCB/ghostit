@@ -19,10 +19,26 @@ printf 'sdk.dir=%s\ncmake.dir=%s\n' "$SDK" "$cmake_prefix" > local.properties
 ./tools/prepare_iree_runtime.sh
 ./tools/prepare_iree_host_tools.sh
 export IREE_HOST_BIN_DIR="$ROOT/.iree-host/tools"
-if ! command -v iree-compile >/dev/null 2>&1; then
-  python3 -m pip install --user iree-base-compiler==3.11.0
-  export PATH="$HOME/.local/bin:$PATH"
+
+IREE_VENV="$ROOT/.iree-compiler-3.11"
+IREE_PY="$IREE_VENV/bin/python"
+IREE_BIN="$IREE_VENV/bin/iree-compile"
+iree_ok=false
+if [ -x "$IREE_PY" ] && [ -x "$IREE_BIN" ]; then
+  if "$IREE_PY" - <<'PY'
+from importlib.metadata import version
+raise SystemExit(0 if version("iree-base-compiler") == "3.11.0" else 1)
+PY
+  then
+    iree_ok=true
+  fi
 fi
+if [ "$iree_ok" != true ]; then
+  rm -rf "$IREE_VENV"
+  python3 -m venv "$IREE_VENV"
+  "$IREE_PY" -m pip install --disable-pip-version-check "iree-base-compiler==3.11.0"
+fi
+export IREE_COMPILE_BIN="$IREE_BIN"
 ./tools/compile_iree_model.sh
 GRADLE="./gradlew"; [ -x "$GRADLE" ] || GRADLE="$(command -v gradle || true)"; [ -n "$GRADLE" ] || { echo "Gradle wrapper/system Gradle unavailable." >&2; exit 3; }
 "$GRADLE" :app:testDebugUnitTest :app:assembleDebug --no-daemon

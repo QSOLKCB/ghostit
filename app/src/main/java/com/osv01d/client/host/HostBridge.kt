@@ -45,7 +45,9 @@ class HostBridgeClient(private val config: HostBridgeConfig) {
             val connection = (URL(config.endpoint + path).openConnection() as HttpURLConnection).apply {
                 requestMethod = method
                 connectTimeout = 3_000
-                readTimeout = 30_000
+                // The host bridge allows subprocesses to run for up to 120 seconds.
+                // Keep the client alive beyond that budget so a slow command is not retried while still running.
+                readTimeout = 130_000
                 setRequestProperty("Authorization", "Bearer ${config.token}")
                 setRequestProperty("Content-Type", "application/json")
                 if (body != null) {
