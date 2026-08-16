@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.osv01d.client.geometry.Invariants
 import com.osv01d.client.model.Speaker
 import com.osv01d.client.persona.ResponseStyle
 import com.osv01d.client.persona.VoicePreset
@@ -77,7 +78,7 @@ fun GhostItRoot(vm: ChatViewModel) {
             Column(Modifier.fillMaxSize().background(Black).padding(12.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Column {
-                        Text("GHOSTIT 1.10", color = Green, fontFamily = FontFamily.Monospace)
+                        Text("GHOSTIT ${Invariants.APP_VERSION.removeSuffix("-ghostit")}", color = Green, fontFamily = FontFamily.Monospace)
                         Text("κ=${"%.3f".format(kappa)} τ=${"%.3f".format(tau)} · LOCAL", color = Dim, fontSize = 10.sp)
                     }
                     TextButton(onClick = { showPersona = true }) { Text("PERSONA", color = Green) }

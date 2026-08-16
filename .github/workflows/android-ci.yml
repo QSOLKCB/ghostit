@@ -1,37 +1,71 @@
 name: Android CI
 on: [pull_request]
+
+concurrency:
+  group: android-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+# PR validation is deliberately read-only. In particular, this workflow must
+# never commit/push generated binaries back to the PR branch: doing so creates
+# a new pull_request synchronize event authored by github-actions[bot], which
+# GitHub may gate behind maintainer approval and can cause an approval loop.
 permissions:
   contents: read
+
 jobs:
   test-build:
     runs-on: ubuntu-latest
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out exact PR source commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Verify hosted Android API 35
         run: |
           test -d "$ANDROID_HOME/platforms/android-35"
           test -d "$ANDROID_HOME/build-tools/35.0.0"
+
       - name: Install Gradle 8.7
         run: |
           curl -fsSL --retry 3 -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.7-bin.zip
           unzip -q /tmp/gradle.zip -d /tmp
           echo "/tmp/gradle-8.7/bin" >> "$GITHUB_PATH"
+
+      - name: Verify build provenance input
+        run: |
+          set -euo pipefail
+          checked_out="$(git rev-parse HEAD)"
+          test "$checked_out" = "$SOURCE_SHA" || {
+            echo "Checked out $checked_out but expected PR source $SOURCE_SHA" >&2
+            exit 1
+          }
+          echo "Building exact PR source commit: $SOURCE_SHA"
+
       - name: Unit tests and debug APK
         run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
-      - name: Hash APK
+
+      - name: Package APK + checksums
         run: |
+          set -euo pipefail
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/GhostIT-1.10.0-debug.apk
-          (cd dist && sha256sum GhostIT-1.10.0-debug.apk > SHA256SUMS.txt)
+          cp app/build/outputs/apk/debug/app-debug.apk dist/GhostIT-1.11.0-debug.apk
+          (cd dist && sha256sum GhostIT-1.11.0-debug.apk > SHA256SUMS.txt)
+          (cd dist && zip -q GhostIT-1.11.0-debug.apk.zip GhostIT-1.11.0-debug.apk SHA256SUMS.txt)
           cat dist/SHA256SUMS.txt
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload compiled APK artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: ghostit-1.10-debug-apk
+          name: ghostit-1.11-debug-apk
           path: dist/

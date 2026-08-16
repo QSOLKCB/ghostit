@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.osv01d.client.geometry.GeometricPolice
 import com.osv01d.client.hector.HectorLocalEngine
+import com.osv01d.client.juggernaut.Juggernaut
 import com.osv01d.client.model.ChatMessage
 import com.osv01d.client.model.Speaker
 import com.osv01d.client.persona.PersonaStore
@@ -19,9 +20,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val personaStore = PersonaStore(app)
     private val speech = PersonaSpeechSynthesizer(app)
     private val hector = HectorLocalEngine(GeometricPolice())
+    private val juggernaut = Juggernaut()
     val persona = personaStore.config
     val ttsStatus = speech.status
-    private val _messages = MutableStateFlow(listOf(ChatMessage(ids.getAndIncrement(), Speaker.SYSTEM, "GhostIT 1.10 local Hector online.")))
+    private val _messages = MutableStateFlow(listOf(ChatMessage(ids.getAndIncrement(), Speaker.SYSTEM, "GhostIT 1.11 local Hector + Juggernaut online.")))
     val messages = _messages.asStateFlow()
     private val _kappa = MutableStateFlow(.12)
     val kappa = _kappa.asStateFlow()
@@ -79,12 +81,52 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     .onFailure { push(Speaker.ERROR, "Voices: ${VoicePreset.entries.joinToString()}") }
                 return true
             }
+            lower == "/jug" || lower == "/jug status" -> {
+                push(Speaker.SYSTEM, juggernaut.status())
+                return true
+            }
+            lower == "/jug tools" -> {
+                push(Speaker.SYSTEM, juggernaut.catalogText())
+                return true
+            }
+            lower == "/jug verify" -> {
+                pushJug(juggernaut.invoke("notary.verify", kappa = _kappa.value, tau = _tau.value))
+                return true
+            }
+            lower == "/jug iree" -> {
+                pushJug(juggernaut.invoke("iree.status", kappa = _kappa.value, tau = _tau.value))
+                return true
+            }
+            lower == "/jug topo" || lower.startsWith("/jug topo ") -> {
+                val arg = if (text.length > "/jug topo".length) text.drop("/jug topo".length).trim() else ""
+                pushJug(juggernaut.invoke("topo.mint", arg, _kappa.value, _tau.value))
+                return true
+            }
+            lower == "/jug receipt" || lower.startsWith("/jug receipt ") -> {
+                val arg = if (text.length > "/jug receipt".length) text.drop("/jug receipt".length).trim() else ""
+                pushJug(juggernaut.invoke("notary.receipt", arg, _kappa.value, _tau.value))
+                return true
+            }
+            lower == "/jug iree-plan" || lower.startsWith("/jug iree-plan ") -> {
+                val arg = if (text.length > "/jug iree-plan".length) text.drop("/jug iree-plan".length).trim() else ""
+                pushJug(juggernaut.invoke("iree.plan", arg, _kappa.value, _tau.value))
+                return true
+            }
+            lower == "/jug mission" || lower.startsWith("/jug mission ") -> {
+                val goal = if (text.length > "/jug mission".length) text.drop("/jug mission".length).trim() else ""
+                push(Speaker.SYSTEM, juggernaut.mission(goal, _kappa.value, _tau.value))
+                return true
+            }
             lower == "/help" -> {
-                push(Speaker.SYSTEM, "/voice <PRESET> · /tts on|off|preview|stop · /speak <text>")
+                push(Speaker.SYSTEM, "/voice <PRESET> · /tts on|off|preview|stop · /speak <text> · /jug status|tools|verify|iree · /jug topo <text> · /jug receipt <text> · /jug iree-plan <file.mlir> · /jug mission <goal>")
                 return true
             }
         }
         return false
+    }
+
+    private fun pushJug(result: Juggernaut.ToolResult) {
+        push(if (result.ok) Speaker.SYSTEM else Speaker.ERROR, "${result.id}: ${result.output}")
     }
 
     private fun push(speaker: Speaker, text: String) {

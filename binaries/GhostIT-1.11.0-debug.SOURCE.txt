@@ -1,0 +1,3 @@
+source_commit=e65ea8a7ec0453b74aeb2256887460859b710204
+workflow_run=31923593012
+artifact=ghostit-1.11-debug-apk
