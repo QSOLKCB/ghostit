@@ -1,6 +1,8 @@
 # GhostIT Juggernaut — Stage 1
 
-GhostIT 1.11 introduces a deliberately small, deterministic **Juggernaut capability plane** derived from the useful concepts in the supplied ONECLICK archive without importing its unsafe or machine-specific execution assumptions.
+GhostIT 1.11 introduces a deliberately small, deterministic **Juggernaut capability plane** derived from the useful concepts in the supplied `GhostIT-ONECLICK-1.9.0` archive without importing its unsafe or machine-specific execution assumptions.
+
+This stage is an isolated reimplementation rather than a wholesale copy of the experimental archive. The goal is to keep every capability reviewable, testable and honest about whether it actually executes work.
 
 ## Included tools
 
