@@ -62,7 +62,11 @@ class Juggernaut(
         if (goal.isBlank()) return "MISSION_HOLD goal required"
         val topo = invoke("topo.mint", goal, kappa, tau)
         if (!topo.ok) return "MISSION_HOLD ${topo.output}"
-        val receipt = invoke("notary.receipt", "mission:$goal|${topo.output}", kappa, tau)
+
+        val receiptPayload = "mission:$goal|${topo.output}"
+        val receipt = invoke("notary.receipt", receiptPayload, kappa, tau)
+        if (!receipt.ok) return "MISSION_HOLD ${receipt.output}"
+
         val extra = if (Regex("(?i)\\b(iree|mlir|vmfb)\\b").containsMatchIn(goal)) {
             "\n${invoke("iree.status", "", kappa, tau).output}"
         } else ""
