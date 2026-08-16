@@ -1,0 +1,37 @@
+name: Release APK
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.7' }
+      - name: Require signing secrets
+        env:
+          KS_B64: ${{ secrets.GHOSTIT_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.GHOSTIT_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.GHOSTIT_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.GHOSTIT_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [ -n "$KS_B64" ] || { echo "Missing GHOSTIT_KEYSTORE_B64" >&2; exit 1; }
+          [ -n "$KS_PASS" ] || { echo "Missing GHOSTIT_KEYSTORE_PASSWORD" >&2; exit 1; }
+          [ -n "$KEY_ALIAS" ] || { echo "Missing GHOSTIT_KEY_ALIAS" >&2; exit 1; }
+          [ -n "$KEY_PASS" ] || { echo "Missing GHOSTIT_KEY_PASSWORD" >&2; exit 1; }
+          mkdir -p "$RUNNER_TEMP/signing"
+          printf '%s' "$KS_B64" | base64 -d > "$RUNNER_TEMP/signing/release.jks"
+      - name: Build release
+        env:
+          GHOSTIT_KEYSTORE_PATH: ${{ runner.temp }}/signing/release.jks
+          GHOSTIT_KEYSTORE_PASSWORD: ${{ secrets.GHOSTIT_KEYSTORE_PASSWORD }}
+          GHOSTIT_KEY_ALIAS: ${{ secrets.GHOSTIT_KEY_ALIAS }}
+          GHOSTIT_KEY_PASSWORD: ${{ secrets.GHOSTIT_KEY_PASSWORD }}
+        run: gradle :app:testDebugUnitTest :app:assembleRelease --stacktrace
