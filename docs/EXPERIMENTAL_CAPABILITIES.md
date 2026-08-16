@@ -6,7 +6,7 @@ GhostIT 1.12 deliberately integrates the large ONECLICK experiments as separate 
 |---|---|---|---|
 | Host IDE / process execution | `tools/host_bridge.py` + Android loopback client | IDE-only | Binds loopback by default, bearer token required, no shell execution. Arbitrary argv requires explicit host `--unrestricted`. |
 | IREE compiler | `iree-base-compiler==3.11.0` | Host/CI only | Compiler never runs in the Android process. |
-| IREE runtime | NDK library linked against pinned IREE 3.11.0 runtime source | Local | Android API 28+, CMake 3.26+; local-sync + VMVX only; JNI probe validates instance/device creation. |
+| IREE runtime | NDK library linked against pinned IREE 3.11.0 runtime source | Local | Android API 28+, CMake 3.26+; host `iree-flatcc-cli` is built natively for schema generation; local-sync + VMVX only. |
 | JNI/native compute | `libghostit_compute.so`, `libghostit_iree.so` | Bundled | No network calls; mining kernel hard-clamps iteration count. |
 | Topology background compute | Android WorkManager | OFF | Explicit opt-in; charging and battery-not-low constraints; finite local-only CPU budget; not cryptocurrency. |
 | GhostKart | Godot 4.7.1 Android library + local assets | Manual launch | Non-exported Activity; no remote assets, ads, telemetry, or network game service. |
@@ -19,9 +19,9 @@ Restricted mode accepts IDE/open commands only. To deliberately enable arbitrary
 
 ## IREE
 
-`tools/prepare_iree_runtime.sh` prepares pinned IREE v3.11.0 source for the Android NDK build. `tools/compile_iree_model.sh` uses the pinned host compiler to generate a VMVX `.vmfb` that is packed into the APK. The native runtime probe creates an IREE runtime instance and a `local-sync` HAL device on Android. IREE 3.11 requires CMake 3.26 or newer; the one-click installer records the discovered CMake installation in `local.properties` so Gradle uses that toolchain instead of an older Android SDK CMake.
+`tools/prepare_iree_runtime.sh` prepares pinned IREE v3.11.0 source for the Android NDK build. `tools/prepare_iree_host_tools.sh` builds the native host `iree-flatcc-cli` required by IREE's cross-compilation path and exposes it through `IREE_HOST_BIN_DIR`. `tools/compile_iree_model.sh` uses the pinned host compiler to generate a VMVX `.vmfb` that is packed into the APK. The native runtime probe creates an IREE runtime instance and a `local-sync` HAL device on Android.
 
-The Android floor is API 28 for this experimental build. IREE 3.11's C11 status allocation path uses `aligned_alloc`, which Android's libc exposes beginning at API 28. The runtime-only CMake configuration also disables compiler, tests, samples, TFLite bindings and check-test modules to keep the Android native surface focused on the runtime actually linked by GhostIT.
+IREE 3.11 requires CMake 3.26 or newer; the one-click installer records the discovered CMake installation in `local.properties` so Gradle uses that toolchain instead of an older Android SDK CMake. Android Gradle is restricted to the two GhostIT JNI targets, so target-only IREE command-line executables are not cross-built or packaged. The Android floor is API 28 because the IREE 3.11 C11 runtime uses `aligned_alloc`, available from that API level.
 
 ## Background topology compute
 

@@ -6,11 +6,21 @@ if(NOT EXISTS "${IREE_SOURCE_DIR}/CMakeLists.txt")
   message(FATAL_ERROR "IREE runtime source missing. Run tools/prepare_iree_runtime.sh before Gradle/Android Studio build.")
 endif()
 
+# IREE requires native host tools while cross-compiling (notably
+# iree-flatcc-cli for generated runtime schemas). Build them on the host first
+# and pass their directory through the environment.
+if(DEFINED ENV{IREE_HOST_BIN_DIR} AND NOT "$ENV{IREE_HOST_BIN_DIR}" STREQUAL "")
+  set(IREE_HOST_BIN_DIR "$ENV{IREE_HOST_BIN_DIR}" CACHE STRING "IREE native host tools" FORCE)
+elseif(CMAKE_CROSSCOMPILING)
+  message(FATAL_ERROR "IREE_HOST_BIN_DIR is required for the Android runtime build. Run tools/prepare_iree_host_tools.sh first.")
+endif()
+
 # Runtime-only IREE integration. The host compiler comes from the pinned Python
 # package and is intentionally not built into Android.
 set(IREE_BUILD_COMPILER OFF CACHE BOOL "" FORCE)
 set(IREE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(IREE_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+set(IREE_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
 set(IREE_BUILD_PYTHON_BINDINGS OFF CACHE BOOL "" FORCE)
 set(IREE_BUILD_BINDINGS_TFLITE OFF CACHE BOOL "" FORCE)
 set(IREE_BUILD_BINDINGS_TFLITE_JAVA OFF CACHE BOOL "" FORCE)

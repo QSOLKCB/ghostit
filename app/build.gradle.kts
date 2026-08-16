@@ -20,6 +20,7 @@ android {
         externalNativeBuild {
             cmake {
                 arguments += listOf("-DANDROID_STL=c++_shared")
+                targets("ghostit_compute", "ghostit_iree")
             }
         }
     }

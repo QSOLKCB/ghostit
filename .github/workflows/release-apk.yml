@@ -46,7 +46,10 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check iree-base-compiler==3.11.0
           ./tools/prepare_iree_runtime.sh
+          ./tools/prepare_iree_host_tools.sh
+          echo "IREE_HOST_BIN_DIR=$PWD/.iree-host/tools" >> "$GITHUB_ENV"
           ./tools/compile_iree_model.sh
+          test -x .iree-host/tools/iree-flatcc-cli
           test -s app/src/main/assets/iree/simple_abs_vmvx.vmfb
       - name: Require signing secrets
         env:

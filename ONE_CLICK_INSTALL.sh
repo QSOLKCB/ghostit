@@ -17,6 +17,8 @@ cmake_prefix="$(cd "$(dirname "$(command -v cmake)")/.." && pwd)"
 export ANDROID_SDK_ROOT="$SDK" ANDROID_HOME="$SDK"; export PATH="$SDK/platform-tools:$PATH"
 printf 'sdk.dir=%s\ncmake.dir=%s\n' "$SDK" "$cmake_prefix" > local.properties
 ./tools/prepare_iree_runtime.sh
+./tools/prepare_iree_host_tools.sh
+export IREE_HOST_BIN_DIR="$ROOT/.iree-host/tools"
 if ! command -v iree-compile >/dev/null 2>&1; then
   python3 -m pip install --user iree-base-compiler==3.11.0
   export PATH="$HOME/.local/bin:$PATH"
