@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.osv01d.client"
-        minSdk = 26
+        minSdk = 28
         targetSdk = 35
         versionCode = 12
         versionName = "1.12.0-ghostit"
