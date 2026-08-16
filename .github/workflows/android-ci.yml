@@ -25,13 +25,15 @@ jobs:
           echo "/tmp/gradle-8.7/bin" >> "$GITHUB_PATH"
       - name: Unit tests and debug APK
         run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
-      - name: Hash APK
+      - name: Package APK + checksums
         run: |
+          set -euo pipefail
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/GhostIT-1.10.0-debug.apk
-          (cd dist && sha256sum GhostIT-1.10.0-debug.apk > SHA256SUMS.txt)
+          cp app/build/outputs/apk/debug/app-debug.apk dist/GhostIT-1.11.0-debug.apk
+          (cd dist && sha256sum GhostIT-1.11.0-debug.apk > SHA256SUMS.txt)
+          (cd dist && zip -q GhostIT-1.11.0-debug.apk.zip GhostIT-1.11.0-debug.apk SHA256SUMS.txt)
           cat dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: ghostit-1.10-debug-apk
+          name: ghostit-1.11-debug-apk
           path: dist/

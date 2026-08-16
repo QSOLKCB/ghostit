@@ -12,8 +12,8 @@ android {
         applicationId = "com.osv01d.client"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.10.0-ghostit"
+        versionCode = 11
+        versionName = "1.11.0-ghostit"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
