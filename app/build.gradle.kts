@@ -7,6 +7,7 @@ plugins {
 android {
     namespace = "com.osv01d.client"
     compileSdk = 35
+    ndkVersion = "27.2.12479018"
 
     defaultConfig {
         applicationId = "com.osv01d.client"
@@ -21,11 +22,11 @@ android {
                 arguments += listOf("-DANDROID_STL=c++_shared")
             }
         }
+    }
 
-        @Suppress("UnstableApiUsage")
-        aaptOptions {
-            ignoreAssetsPattern = "!.svn:!.git:!.gitignore:!.ds_store:!*.scc:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"
-        }
+    @Suppress("UnstableApiUsage")
+    aaptOptions {
+        ignoreAssetsPattern = "!.svn:!.git:!.gitignore:!.ds_store:!*.scc:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"
     }
 
     externalNativeBuild {
@@ -72,6 +73,7 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.fragment:fragment-ktx:1.8.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("androidx.activity:activity-compose:1.9.2")
