@@ -9,7 +9,11 @@ import argparse, json, os, secrets, shlex, shutil, socket, subprocess, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-ALLOWED = {"code", "codium", "idea", "studio", "android-studio", "xdg-open", "open"}
+# Restricted mode is deliberately limited to IDE binaries. Generic launchers such
+# as macOS `open` and Linux `xdg-open` are excluded because their arguments can
+# select arbitrary applications. Arbitrary argv remains available only with
+# explicit --unrestricted host opt-in.
+ALLOWED_IDES = {"code", "codium", "idea", "studio", "android-studio"}
 
 class State:
     token = ""
@@ -20,10 +24,18 @@ class State:
 
     @classmethod
     def record(cls, payload: dict) -> None:
-        cls.audit.parent.mkdir(parents=True, exist_ok=True)
+        cls.audit.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(cls.audit.parent, 0o700)
         payload = {"time": int(time.time()), **payload}
-        with cls.audit.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(payload, sort_keys=True) + "\n")
+        fd = os.open(cls.audit, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        try:
+            os.chmod(cls.audit, 0o600)
+            with os.fdopen(fd, "a", encoding="utf-8") as f:
+                fd = -1
+                f.write(json.dumps(payload, sort_keys=True) + "\n")
+        finally:
+            if fd >= 0:
+                os.close(fd)
 
 def within_workspace(path: Path) -> bool:
     try:
@@ -31,6 +43,20 @@ def within_workspace(path: Path) -> bool:
         return True
     except ValueError:
         return False
+
+def validate_restricted_arguments(argv: list[str], cwd: Path) -> tuple[bool, str]:
+    """Allow IDE launch/open only for workspace-local paths and no IDE flags."""
+    for arg in argv[1:]:
+        if arg == "--":
+            continue
+        if arg.startswith("-"):
+            return False, "restricted mode rejects IDE flags; use --unrestricted for arbitrary IDE options"
+        candidate = Path(arg).expanduser()
+        if not candidate.is_absolute():
+            candidate = cwd / candidate
+        if not within_workspace(candidate):
+            return False, "restricted mode accepts only workspace-local IDE path arguments"
+    return True, ""
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "GhostITHostBridge/1.12"
@@ -52,18 +78,21 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length) or b"{}")
             argv = shlex.split(str(body.get("command", "")))
             if not argv: return self.reply(400, ok=False, message="command required")
+            cwd = Path(body.get("cwd") or State.workspace).expanduser().resolve()
             if not State.unrestricted:
+                if not within_workspace(cwd):
+                    return self.reply(403, ok=False, message="cwd escapes configured workspace")
                 requested = argv[0]
                 if Path(requested).name != requested or "/" in requested or "\\" in requested:
-                    return self.reply(403, ok=False, message="restricted mode rejects executable paths; use a trusted IDE/open command name")
+                    return self.reply(403, ok=False, message="restricted mode rejects executable paths; use a trusted IDE command name")
                 trusted = State.trusted_executables.get(requested)
                 if not trusted:
-                    return self.reply(403, ok=False, message=f"restricted mode allows only installed IDE/open commands: {sorted(State.trusted_executables)}")
+                    return self.reply(403, ok=False, message=f"restricted mode allows only installed IDE commands: {sorted(State.trusted_executables)}")
+                valid, message = validate_restricted_arguments(argv, cwd)
+                if not valid:
+                    return self.reply(403, ok=False, message=message)
                 # Freeze restricted commands to the executable resolved when the bridge started.
                 argv[0] = trusted
-            cwd = Path(body.get("cwd") or State.workspace).expanduser().resolve()
-            if not State.unrestricted and not within_workspace(cwd):
-                return self.reply(403, ok=False, message="cwd escapes configured workspace")
             State.record({"argv": argv, "cwd": str(cwd), "mode": "unrestricted" if State.unrestricted else "ide-only"})
             result = subprocess.run(argv, cwd=cwd, text=True, capture_output=True, timeout=120, shell=False)
             output = ((result.stdout or "") + (result.stderr or ""))[-32000:]
@@ -92,13 +121,13 @@ def main():
     State.workspace = Path(args.workspace).expanduser().resolve()
     State.trusted_executables = {
         name: str(Path(found).resolve())
-        for name in ALLOWED
+        for name in ALLOWED_IDES
         if (found := shutil.which(name)) is not None
     }
     print(f"GhostIT host bridge: http://{args.bind}:{args.port} mode={'UNRESTRICTED' if args.unrestricted else 'IDE_ONLY'}")
     print(f"token={State.token}")
     if not args.unrestricted:
-        print(f"trusted executables={State.trusted_executables}")
+        print(f"trusted IDE executables={State.trusted_executables}")
     print("Android USB: adb reverse tcp:8765 tcp:8765")
     server_cls = IPv6ThreadingHTTPServer if ":" in args.bind else ThreadingHTTPServer
     server_cls((args.bind, args.port), Handler).serve_forever()

@@ -10,11 +10,15 @@ Java_com_osv01d_client_nativecore_NativeIreeRuntime_ireeProbe(JNIEnv* env, jobje
 
   iree_runtime_instance_t* instance = NULL;
   iree_status_t status = iree_runtime_instance_create(&instance_options, iree_allocator_system(), &instance);
-  if (!iree_status_is_ok(status)) return (*env)->NewStringUTF(env, "IREE runtime linked but instance creation failed");
+  if (!iree_status_is_ok(status)) {
+    iree_status_ignore(status);
+    return (*env)->NewStringUTF(env, "IREE runtime linked but instance creation failed");
+  }
 
   iree_hal_device_t* device = NULL;
   status = iree_runtime_instance_try_create_default_device(instance, iree_make_cstring_view("local-sync"), &device);
   if (!iree_status_is_ok(status)) {
+    iree_status_ignore(status);
     iree_runtime_instance_release(instance);
     return (*env)->NewStringUTF(env, "IREE runtime instance OK; local-sync device unavailable");
   }
