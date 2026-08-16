@@ -81,7 +81,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     .onFailure { push(Speaker.ERROR, "Voices: ${VoicePreset.entries.joinToString()}") }
                 return true
             }
-            lower == "/jug status" -> {
+            lower == "/jug" || lower == "/jug status" -> {
                 push(Speaker.SYSTEM, juggernaut.status())
                 return true
             }
@@ -98,19 +98,19 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 return true
             }
             lower.startsWith("/jug topo ") -> {
-                pushJug(juggernaut.invoke("topo.mint", text.substringAfter("/jug topo "), _kappa.value, _tau.value))
+                pushJug(juggernaut.invoke("topo.mint", text.drop("/jug topo ".length).trim(), _kappa.value, _tau.value))
                 return true
             }
             lower.startsWith("/jug receipt ") -> {
-                pushJug(juggernaut.invoke("notary.receipt", text.substringAfter("/jug receipt "), _kappa.value, _tau.value))
+                pushJug(juggernaut.invoke("notary.receipt", text.drop("/jug receipt ".length).trim(), _kappa.value, _tau.value))
                 return true
             }
             lower.startsWith("/jug iree-plan ") -> {
-                pushJug(juggernaut.invoke("iree.plan", text.substringAfter("/jug iree-plan "), _kappa.value, _tau.value))
+                pushJug(juggernaut.invoke("iree.plan", text.drop("/jug iree-plan ".length).trim(), _kappa.value, _tau.value))
                 return true
             }
             lower.startsWith("/jug mission ") -> {
-                val goal = text.substringAfter("/jug mission ")
+                val goal = text.drop("/jug mission ".length).trim()
                 push(Speaker.SYSTEM, juggernaut.mission(goal, _kappa.value, _tau.value))
                 return true
             }
