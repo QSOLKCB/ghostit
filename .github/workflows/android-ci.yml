@@ -5,16 +5,14 @@ concurrency:
   group: android-ci-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
-# PR validation is deliberately read-only. In particular, this workflow must
-# never commit/push generated binaries back to the PR branch: doing so creates
-# a new pull_request synchronize event authored by github-actions[bot], which
-# GitHub may gate behind maintainer approval and can cause an approval loop.
+# Read-only PR validation: never push generated binaries back to a PR branch.
 permissions:
   contents: read
 
 jobs:
   test-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
@@ -31,10 +29,17 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Verify hosted Android API 35
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify Android SDK and install native toolchain
         run: |
+          set -euo pipefail
           test -d "$ANDROID_HOME/platforms/android-35"
           test -d "$ANDROID_HOME/build-tools/35.0.0"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" "cmake;3.22.1" "ndk;27.2.12479018" >/dev/null || true
 
       - name: Install Gradle 8.7
         run: |
@@ -43,29 +48,38 @@ jobs:
           echo "/tmp/gradle-8.7/bin" >> "$GITHUB_PATH"
 
       - name: Verify build provenance input
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Prepare pinned IREE compiler + Android runtime source
+        run: |
+          python -m pip install --disable-pip-version-check iree-base-compiler==3.11.0
+          ./tools/prepare_iree_runtime.sh
+          ./tools/compile_iree_model.sh
+          test -s app/src/main/assets/iree/simple_abs_vmvx.vmfb
+
+      - name: Unit tests and experimental APK
+        run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
+
+      - name: Verify bundled native libraries and Godot project
         run: |
           set -euo pipefail
-          checked_out="$(git rev-parse HEAD)"
-          test "$checked_out" = "$SOURCE_SHA" || {
-            echo "Checked out $checked_out but expected PR source $SOURCE_SHA" >&2
-            exit 1
-          }
-          echo "Building exact PR source commit: $SOURCE_SHA"
-
-      - name: Unit tests and debug APK
-        run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          unzip -l "$APK" | grep -q 'libghostit_compute.so'
+          unzip -l "$APK" | grep -q 'libghostit_iree.so'
+          unzip -l "$APK" | grep -q 'assets/project.godot'
+          unzip -l "$APK" | grep -q 'assets/iree/simple_abs_vmvx.vmfb'
 
       - name: Package APK + checksums
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/GhostIT-1.11.0-debug.apk
-          (cd dist && sha256sum GhostIT-1.11.0-debug.apk > SHA256SUMS.txt)
-          (cd dist && zip -q GhostIT-1.11.0-debug.apk.zip GhostIT-1.11.0-debug.apk SHA256SUMS.txt)
+          cp app/build/outputs/apk/debug/app-debug.apk dist/GhostIT-1.12.0-debug.apk
+          (cd dist && sha256sum GhostIT-1.12.0-debug.apk > SHA256SUMS.txt)
+          (cd dist && zip -q GhostIT-1.12.0-debug.apk.zip GhostIT-1.12.0-debug.apk SHA256SUMS.txt)
           cat dist/SHA256SUMS.txt
 
       - name: Upload compiled APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ghostit-1.11-debug-apk
+          name: ghostit-1.12-experimental-apk
           path: dist/

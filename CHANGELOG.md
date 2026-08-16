@@ -1,24 +1,19 @@
 # Changelog
 
+## 1.12.0
+
+- Integrates the deferred ONECLICK experimental tranche behind explicit capability boundaries.
+- Adds bearer-authenticated loopback host IDE/process bridge; arbitrary argv requires explicit `--unrestricted` host mode.
+- Pins IREE 3.11.0, compiles MLIR to VMVX on host/CI, and links the IREE runtime into Android JNI.
+- Adds bundled native deterministic topology compute with hard iteration bounds.
+- Adds opt-in WorkManager background topology compute constrained to charging and battery-not-low.
+- Embeds Godot 4.7.1 and an asset-free GhostKart prototype in a non-exported Android Activity.
+- Preserves read-only PR CI and packages a compiled GhostIT 1.12 APK ZIP as an Actions artifact.
+
 ## 1.11.0
 
-- Adds the hardened Juggernaut Stage-1 capability plane from the deferred ONECLICK concepts.
-- Adds deterministic topology symbol/room-code minting.
-- Adds a SHA-256 linked in-memory compute notary with verification.
-- Adds explicit IREE Android-runtime vs host-AOT doctrine and safe host plan generation without command execution.
-- Adds `/jug status|tools|topo|receipt|verify|iree|iree-plan|mission` chat commands.
-- Adds regression tests for topology determinism, notary verification, IREE path validation and geometric fail-closed behavior.
-- Adds `/binaries` as the repository location for reviewed compiled APK ZIP snapshots.
-- CI now packages the compiled APK and checksum manifest into a downloadable ZIP.
+- Adds the hardened Juggernaut Stage-1 capability plane, deterministic topology/notary tools, IREE planning boundary, and compiled APK snapshot workflow.
 
 ## 1.10.0
 
-- Replaces the temporary recovery/probe scaffold with actual Android application source.
-- Adds offline-first local Hector chat guarded by the geometric invariant window.
-- Adds Android `TextToSpeech` persona synthesis with persistent pitch, rate, volume and auto-speak controls.
-- Adds the original `COMEDY_CHAOS` caricature preset with explicit non-impersonation language.
-- Adds `/voice`, `/tts`, `/speak` chat commands and a Compose persona/voice panel.
-- Adds a host-side one-click test/build/hash/install/launch script with deterministic ADB device selection.
-- Adds Android CI that produces a hashed debug APK artifact.
-- Removes committed signing material and makes release signing secret-driven and fail-closed.
-- Defers Juggernaut, IREE, topology/notary, JNI and large experimental subsystems from the supplied ONECLICK archive to later reviewable PRs.
+- Replaces the recovery scaffold with an Android app, local Hector/persona/TTS, one-click build/install, CI and fail-closed release signing.

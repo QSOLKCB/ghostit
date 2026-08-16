@@ -1,25 +1,21 @@
-# GhostIT 1.11
+# GhostIT 1.12
 
-Android Studio-ready GhostIT with offline local Hector chat, Android `TextToSpeech` persona voices, persistent pitch/rate/volume controls, hardened one-click build/install, and a deterministic **Juggernaut Stage-1 capability plane**.
+Android GhostIT experimental capability lab: offline Hector/persona/TTS, Juggernaut, explicit host execution bridge, pinned IREE compiler + Android runtime/JNI, bounded topology background compute, and embedded GhostKart/Godot.
 
-`COMEDY_CHAOS` is an original exaggerated stand-up caricature preset. It does **not** clone or impersonate a real person's biometric voice.
+## Build
 
-## Juggernaut
-
-GhostIT 1.11 adds local topology minting, a SHA-256 linked receipt notary, and an explicit industry-IREE capability layer. Use `/jug tools` in chat to see the tool surface. Stage 1 is deliberately no-shell/no-network and does not run compilers or hidden background compute.
-
-See `docs/JUGGERNAUT.md` for the command contract and safety boundary.
-
-## One-click build/install
-
-Requirements: JDK 17, Android SDK/API 35, and Gradle 8.7 available on `PATH` (or an executable `./gradlew` if you add the standard wrapper locally).
+Requirements: JDK 17, Android SDK/API 35, Git, Python 3.10+, and Gradle 8.7 (or a local Gradle wrapper).
 
 ```bash
 ./ONE_CLICK_INSTALL.sh
 ```
 
-The script runs unit tests, assembles the debug APK, prints its SHA-256, installs with `adb` when a single device (or `ANDROID_SERIAL`) is available, and launches GhostIT.
+The build prepares pinned IREE v3.11.0 runtime source, installs/uses `iree-base-compiler==3.11.0`, compiles the VMVX sample, runs unit tests, builds native JNI libraries, resolves the Godot Android AAR, and assembles the APK.
 
-GitHub Actions publishes `GhostIT-1.11.0-debug.apk`, `SHA256SUMS.txt`, and `GhostIT-1.11.0-debug.apk.zip` as workflow artifacts. A reviewed compiled snapshot is also stored under `/binaries` for direct download.
+PR CI is read-only: it never commits generated binaries back to the PR branch, avoiding the maintainer-approval loop encountered during 1.11 development.
 
-See `docs/ONECLICK_SOURCE_AUDIT.md` for what remains intentionally deferred from the supplied experimental archive.
+## Experimental commands
+
+`/lab status` describes capability boundaries. `/iree probe` tests the native runtime. `/kart` launches GhostKart. `/mine status|on|off|once [iterations]` controls local topology compute. `/host status|endpoint|token|exec` talks to the explicitly started host bridge. Existing `/jug`, TTS and persona commands remain available.
+
+See `docs/EXPERIMENTAL_CAPABILITIES.md` and `docs/ONECLICK_SOURCE_AUDIT.md` before enabling host or background capabilities.
