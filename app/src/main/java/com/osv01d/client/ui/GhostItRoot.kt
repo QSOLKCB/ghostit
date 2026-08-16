@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -61,7 +60,10 @@ fun GhostItRoot(vm: ChatViewModel) {
                     }
                     TextButton(onClick = { showPersona = true }) { Text("PERSONA", color = Green) }
                 }
-                LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                LazyColumn(
+                    Modifier.fillMaxWidth().heightIn(min = 160.dp, max = 520.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     items(messages, key = { it.id }) { message ->
                         val color = when (message.speaker) {
                             Speaker.ERROR -> Color.Red
@@ -71,11 +73,11 @@ fun GhostItRoot(vm: ChatViewModel) {
                         Text("${message.speaker}: ${message.text}", color = color, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     }
                 }
-                Row(Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = input,
                         onValueChange = { input = it },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(0.76f),
                         placeholder = { Text("Message Hector locally…") },
                         singleLine = true
                     )
