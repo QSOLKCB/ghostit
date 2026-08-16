@@ -97,20 +97,23 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 pushJug(juggernaut.invoke("iree.status", kappa = _kappa.value, tau = _tau.value))
                 return true
             }
-            lower.startsWith("/jug topo ") -> {
-                pushJug(juggernaut.invoke("topo.mint", text.drop("/jug topo ".length).trim(), _kappa.value, _tau.value))
+            lower == "/jug topo" || lower.startsWith("/jug topo ") -> {
+                val arg = if (text.length > "/jug topo".length) text.drop("/jug topo".length).trim() else ""
+                pushJug(juggernaut.invoke("topo.mint", arg, _kappa.value, _tau.value))
                 return true
             }
-            lower.startsWith("/jug receipt ") -> {
-                pushJug(juggernaut.invoke("notary.receipt", text.drop("/jug receipt ".length).trim(), _kappa.value, _tau.value))
+            lower == "/jug receipt" || lower.startsWith("/jug receipt ") -> {
+                val arg = if (text.length > "/jug receipt".length) text.drop("/jug receipt".length).trim() else ""
+                pushJug(juggernaut.invoke("notary.receipt", arg, _kappa.value, _tau.value))
                 return true
             }
-            lower.startsWith("/jug iree-plan ") -> {
-                pushJug(juggernaut.invoke("iree.plan", text.drop("/jug iree-plan ".length).trim(), _kappa.value, _tau.value))
+            lower == "/jug iree-plan" || lower.startsWith("/jug iree-plan ") -> {
+                val arg = if (text.length > "/jug iree-plan".length) text.drop("/jug iree-plan".length).trim() else ""
+                pushJug(juggernaut.invoke("iree.plan", arg, _kappa.value, _tau.value))
                 return true
             }
-            lower.startsWith("/jug mission ") -> {
-                val goal = text.drop("/jug mission ".length).trim()
+            lower == "/jug mission" || lower.startsWith("/jug mission ") -> {
+                val goal = if (text.length > "/jug mission".length) text.drop("/jug mission".length).trim() else ""
                 push(Speaker.SYSTEM, juggernaut.mission(goal, _kappa.value, _tau.value))
                 return true
             }
