@@ -7,14 +7,33 @@ plugins {
 android {
     namespace = "com.osv01d.client"
     compileSdk = 35
+    ndkVersion = "27.2.12479018"
 
     defaultConfig {
         applicationId = "com.osv01d.client"
-        minSdk = 26
+        minSdk = 28
         targetSdk = 35
-        versionCode = 11
-        versionName = "1.11.0-ghostit"
+        versionCode = 12
+        versionName = "1.12.0-ghostit"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DANDROID_STL=c++_shared")
+                targets("ghostit_compute", "ghostit_iree")
+            }
+        }
+    }
+
+    @Suppress("UnstableApiUsage")
+    aaptOptions {
+        ignoreAssetsPattern = "!.svn:!.git:!.gitignore:!.ds_store:!*.scc:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+        }
     }
 
     signingConfigs {
@@ -54,6 +73,7 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.fragment:fragment-ktx:1.8.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("androidx.activity:activity-compose:1.9.2")
@@ -62,6 +82,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation("org.godotengine:godot:4.7.1.stable")
     testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

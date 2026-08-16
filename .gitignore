@@ -10,3 +10,8 @@ app/build/
 *.keystore
 signing/*.jks
 signing/*.b64
+app/src/main/cpp/third_party/iree/
+app/src/main/assets/iree/*.vmfb
+.iree-host/
+.iree-compiler-3.11/
+.ghostit/

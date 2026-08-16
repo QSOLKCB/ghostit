@@ -5,7 +5,7 @@ on:
     tags: ['v*']
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     env:
@@ -13,19 +13,44 @@ jobs:
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-      - name: Verify hosted Android API 35
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare Android native toolchain
         run: |
+          set -euo pipefail
           test -d "$ANDROID_HOME/platforms/android-35"
           test -d "$ANDROID_HOME/build-tools/35.0.0"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" "ndk;27.2.12479018" >/dev/null || true
+          cmake_version="$(cmake --version | awk 'NR==1 {print $3}')"
+          cmake_major="${cmake_version%%.*}"
+          cmake_rest="${cmake_version#*.}"
+          cmake_minor="${cmake_rest%%.*}"
+          if [ "$cmake_major" -lt 3 ] || { [ "$cmake_major" -eq 3 ] && [ "$cmake_minor" -lt 26 ]; }; then
+            echo "IREE 3.11 requires CMake >= 3.26; runner has $cmake_version" >&2
+            exit 1
+          fi
+          cmake_prefix="$(cd "$(dirname "$(command -v cmake)")/.." && pwd)"
+          printf 'sdk.dir=%s\ncmake.dir=%s\n' "$ANDROID_HOME" "$cmake_prefix" > local.properties
       - name: Install Gradle 8.7
         run: |
           curl -fsSL --retry 3 -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.7-bin.zip
           unzip -q /tmp/gradle.zip -d /tmp
           echo "/tmp/gradle-8.7/bin" >> "$GITHUB_PATH"
+      - name: Prepare pinned IREE compiler + Android runtime source
+        run: |
+          python -m pip install --disable-pip-version-check iree-base-compiler==3.11.0
+          ./tools/prepare_iree_runtime.sh
+          ./tools/prepare_iree_host_tools.sh
+          echo "IREE_HOST_BIN_DIR=$PWD/.iree-host/tools" >> "$GITHUB_ENV"
+          ./tools/compile_iree_model.sh
+          test -x .iree-host/tools/iree-flatcc-cli
+          test -s app/src/main/assets/iree/simple_abs_vmvx.vmfb
       - name: Require signing secrets
         env:
           KS_B64: ${{ secrets.GHOSTIT_KEYSTORE_B64 }}
@@ -51,13 +76,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk dist/GhostIT-1.11.0-release.apk
-          (cd dist && sha256sum GhostIT-1.11.0-release.apk > SHA256SUMS.txt)
-          (cd dist && zip -q GhostIT-1.11.0-release.apk.zip GhostIT-1.11.0-release.apk SHA256SUMS.txt)
+          cp app/build/outputs/apk/release/app-release.apk dist/GhostIT-1.12.0-release.apk
+          (cd dist && sha256sum GhostIT-1.12.0-release.apk > SHA256SUMS.txt)
+          (cd dist && zip -q GhostIT-1.12.0-release.apk.zip GhostIT-1.12.0-release.apk SHA256SUMS.txt)
           cat dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: ghostit-1.11-signed-release
+          name: ghostit-1.12-signed-release
           path: dist/
       - name: Publish tag release assets
         if: startsWith(github.ref, 'refs/tags/')
@@ -67,4 +92,4 @@ jobs:
           set -euo pipefail
           tag="$GITHUB_REF_NAME"
           gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "GhostIT $tag" --generate-notes
-          gh release upload "$tag" dist/GhostIT-1.11.0-release.apk dist/GhostIT-1.11.0-release.apk.zip dist/SHA256SUMS.txt --clobber
+          gh release upload "$tag" dist/GhostIT-1.12.0-release.apk dist/GhostIT-1.12.0-release.apk.zip dist/SHA256SUMS.txt --clobber
