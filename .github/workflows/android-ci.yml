@@ -5,8 +5,12 @@ concurrency:
   group: android-ci-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# PR validation is deliberately read-only. In particular, this workflow must
+# never commit/push generated binaries back to the PR branch: doing so creates
+# a new pull_request synchronize event authored by github-actions[bot], which
+# GitHub may gate behind maintainer approval and can cause an approval loop.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test-build:
@@ -15,7 +19,6 @@ jobs:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
       SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
-      HEAD_REF: ${{ github.head_ref }}
     steps:
       - name: Check out exact PR source commit
         uses: actions/checkout@v4
@@ -61,54 +64,8 @@ jobs:
           (cd dist && zip -q GhostIT-1.11.0-debug.apk.zip GhostIT-1.11.0-debug.apk SHA256SUMS.txt)
           cat dist/SHA256SUMS.txt
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload compiled APK artifact
+        uses: actions/upload-artifact@v4
         with:
           name: ghostit-1.11-debug-apk
           path: dist/
-
-      - name: Add reviewed APK ZIP to binaries directory
-        if: github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          set -euo pipefail
-          binary="GhostIT-1.11.0-debug.apk.zip"
-          checksum="GhostIT-1.11.0-debug.SHA256SUMS.txt"
-          source_meta="GhostIT-1.11.0-debug.SOURCE.txt"
-
-          cp "dist/$binary" "/tmp/$binary"
-          cp dist/SHA256SUMS.txt "/tmp/$checksum"
-
-          # Refuse to publish an artifact if a newer PR commit arrived while this
-          # run was building. This prevents an older APK from being attached to
-          # a newer branch tip.
-          git fetch --no-tags origin "+refs/heads/$HEAD_REF:refs/remotes/origin/$HEAD_REF"
-          remote_head="$(git rev-parse "origin/$HEAD_REF")"
-          if [ "$remote_head" != "$SOURCE_SHA" ]; then
-            echo "PR head advanced from $SOURCE_SHA to $remote_head; refusing stale binary publish."
-            exit 0
-          fi
-
-          expected="source_commit=$SOURCE_SHA"
-          current="$(git show "origin/$HEAD_REF:binaries/$source_meta" 2>/dev/null | sed -n '1p' || true)"
-          if [ "$current" = "$expected" ]; then
-            echo "Checked-in binary already comes from $SOURCE_SHA; no binary commit needed."
-            exit 0
-          fi
-
-          git switch -C "$HEAD_REF" "origin/$HEAD_REF"
-          mkdir -p binaries
-          cp "/tmp/$binary" "binaries/$binary"
-          cp "/tmp/$checksum" "binaries/$checksum"
-          printf 'source_commit=%s\nworkflow_run=%s\nartifact=ghostit-1.11-debug-apk\n' \
-            "$SOURCE_SHA" "$GITHUB_RUN_ID" > "binaries/$source_meta"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "binaries/$binary" "binaries/$checksum" "binaries/$source_meta"
-          git commit -m "Refresh compiled GhostIT 1.11 Android binary"
-
-          # Compare-and-swap the branch: even if the head moves in the tiny
-          # window after the check above, this lease prevents a stale publish.
-          if ! git push --force-with-lease="refs/heads/$HEAD_REF:$SOURCE_SHA" origin "HEAD:refs/heads/$HEAD_REF"; then
-            echo "PR head changed during binary publication; stale binary was not pushed."
-            exit 0
-          fi
