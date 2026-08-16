@@ -25,7 +25,9 @@ class ComputeNotary {
         val previous = receipts.lastOrNull()?.chainHash ?: GENESIS
         val index = receipts.size.toLong()
         val chainHash = sha256("$index|$normalizedKind|$payloadHash|$previous")
-        return Receipt(index, normalizedKind, payloadHash, previous, chainHash).also(receipts::add)
+        val receipt = Receipt(index, normalizedKind, payloadHash, previous, chainHash)
+        receipts.add(receipt)
+        return receipt
     }
 
     @Synchronized
