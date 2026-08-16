@@ -1,30 +1,57 @@
 name: Android CI
 on: [pull_request]
+
+concurrency:
+  group: android-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
+
 jobs:
   test-build:
     runs-on: ubuntu-latest
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+      HEAD_REF: ${{ github.head_ref }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out exact PR source commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Verify hosted Android API 35
         run: |
           test -d "$ANDROID_HOME/platforms/android-35"
           test -d "$ANDROID_HOME/build-tools/35.0.0"
+
       - name: Install Gradle 8.7
         run: |
           curl -fsSL --retry 3 -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.7-bin.zip
           unzip -q /tmp/gradle.zip -d /tmp
           echo "/tmp/gradle-8.7/bin" >> "$GITHUB_PATH"
+
+      - name: Verify build provenance input
+        run: |
+          set -euo pipefail
+          checked_out="$(git rev-parse HEAD)"
+          test "$checked_out" = "$SOURCE_SHA" || {
+            echo "Checked out $checked_out but expected PR source $SOURCE_SHA" >&2
+            exit 1
+          }
+          echo "Building exact PR source commit: $SOURCE_SHA"
+
       - name: Unit tests and debug APK
         run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
+
       - name: Package APK + checksums
         run: |
           set -euo pipefail
@@ -33,15 +60,14 @@ jobs:
           (cd dist && sha256sum GhostIT-1.11.0-debug.apk > SHA256SUMS.txt)
           (cd dist && zip -q GhostIT-1.11.0-debug.apk.zip GhostIT-1.11.0-debug.apk SHA256SUMS.txt)
           cat dist/SHA256SUMS.txt
+
       - uses: actions/upload-artifact@v4
         with:
           name: ghostit-1.11-debug-apk
           path: dist/
+
       - name: Add reviewed APK ZIP to binaries directory
         if: github.event.pull_request.head.repo.full_name == github.repository
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-          SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           binary="GhostIT-1.11.0-debug.apk.zip"
@@ -51,7 +77,16 @@ jobs:
           cp "dist/$binary" "/tmp/$binary"
           cp dist/SHA256SUMS.txt "/tmp/$checksum"
 
-          git fetch origin "$HEAD_REF"
+          # Refuse to publish an artifact if a newer PR commit arrived while this
+          # run was building. This prevents an older APK from being attached to
+          # a newer branch tip.
+          git fetch --no-tags origin "+refs/heads/$HEAD_REF:refs/remotes/origin/$HEAD_REF"
+          remote_head="$(git rev-parse "origin/$HEAD_REF")"
+          if [ "$remote_head" != "$SOURCE_SHA" ]; then
+            echo "PR head advanced from $SOURCE_SHA to $remote_head; refusing stale binary publish."
+            exit 0
+          fi
+
           expected="source_commit=$SOURCE_SHA"
           current="$(git show "origin/$HEAD_REF:binaries/$source_meta" 2>/dev/null | sed -n '1p' || true)"
           if [ "$current" = "$expected" ]; then
@@ -70,4 +105,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "binaries/$binary" "binaries/$checksum" "binaries/$source_meta"
           git commit -m "Refresh compiled GhostIT 1.11 Android binary"
-          git push origin "HEAD:$HEAD_REF"
+
+          # Compare-and-swap the branch: even if the head moves in the tiny
+          # window after the check above, this lease prevents a stale publish.
+          if ! git push --force-with-lease="refs/heads/$HEAD_REF:$SOURCE_SHA" origin "HEAD:refs/heads/$HEAD_REF"; then
+            echo "PR head changed during binary publication; stale binary was not pushed."
+            exit 0
+          fi
