@@ -52,8 +52,10 @@ jobs:
           cp dist/SHA256SUMS.txt "/tmp/$checksum"
 
           git fetch origin "$HEAD_REF"
-          if git cat-file -e "origin/$HEAD_REF:binaries/$binary" 2>/dev/null; then
-            echo "binaries/$binary already exists on the PR branch; leaving reviewed snapshot unchanged."
+          expected="source_commit=$SOURCE_SHA"
+          current="$(git show "origin/$HEAD_REF:binaries/$source_meta" 2>/dev/null | sed -n '1p' || true)"
+          if [ "$current" = "$expected" ]; then
+            echo "Checked-in binary already comes from $SOURCE_SHA; no binary commit needed."
             exit 0
           fi
 
@@ -67,5 +69,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "binaries/$binary" "binaries/$checksum" "binaries/$source_meta"
-          git commit -m "Add compiled GhostIT 1.11 Android binary"
+          git commit -m "Refresh compiled GhostIT 1.11 Android binary"
           git push origin "HEAD:$HEAD_REF"
