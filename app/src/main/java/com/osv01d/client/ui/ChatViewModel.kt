@@ -86,13 +86,22 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             lower == "/host status" -> { hostCall { host.status() }; return true }
             lower == "/host endpoint" || lower.startsWith("/host endpoint ") -> {
                 val value = text.drop("/host endpoint".length).trim()
-                push(if (hostConfig.setEndpoint(value)) Speaker.SYSTEM else Speaker.ERROR, if (value.isBlank()) "Host endpoint=${hostConfig.endpoint}" else if (hostConfig.setEndpoint(value)) "Host endpoint updated" else "Only loopback endpoints http://127.0.0.1:8765 and http://localhost:8765 are accepted")
+                if (value.isBlank()) {
+                    push(Speaker.SYSTEM, "Host endpoint=${hostConfig.endpoint}")
+                } else {
+                    val updated = hostConfig.setEndpoint(value)
+                    push(if (updated) Speaker.SYSTEM else Speaker.ERROR, if (updated) "Host endpoint updated" else "Only loopback endpoints http://127.0.0.1:8765 and http://localhost:8765 are accepted")
+                }
                 return true
             }
             lower == "/host token" || lower.startsWith("/host token ") -> {
                 val value = text.drop("/host token".length).trim()
-                if (value.isBlank()) push(Speaker.SYSTEM, "Host token configured=${hostConfig.token.isNotBlank()}")
-                else push(if (hostConfig.setToken(value)) Speaker.SYSTEM else Speaker.ERROR, if (hostConfig.setToken(value)) "Host bridge token stored locally" else "Token must be 16..256 characters")
+                if (value.isBlank()) {
+                    push(Speaker.SYSTEM, "Host token configured=${hostConfig.token.isNotBlank()}")
+                } else {
+                    val updated = hostConfig.setToken(value)
+                    push(if (updated) Speaker.SYSTEM else Speaker.ERROR, if (updated) "Host bridge token stored locally" else "Token must be 16..256 characters")
+                }
                 return true
             }
             lower == "/host exec" || lower.startsWith("/host exec ") -> {

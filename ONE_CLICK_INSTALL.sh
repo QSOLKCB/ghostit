@@ -4,7 +4,18 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; cd "$ROOT"
 SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
 for candidate in "$SDK" "$HOME/Android/Sdk" "$HOME/Library/Android/sdk"; do [ -n "$candidate" ] && [ -d "$candidate" ] && SDK="$candidate" && break; done
 [ -n "$SDK" ] && [ -d "$SDK" ] || { echo "Android SDK not found; set ANDROID_SDK_ROOT." >&2; exit 2; }
-export ANDROID_SDK_ROOT="$SDK" ANDROID_HOME="$SDK"; export PATH="$SDK/platform-tools:$PATH"; printf 'sdk.dir=%s\n' "$SDK" > local.properties
+command -v cmake >/dev/null 2>&1 || { echo "CMake >= 3.26 is required for the bundled IREE runtime." >&2; exit 2; }
+cmake_version="$(cmake --version | awk 'NR==1 {print $3}')"
+cmake_major="${cmake_version%%.*}"
+cmake_rest="${cmake_version#*.}"
+cmake_minor="${cmake_rest%%.*}"
+if [ "$cmake_major" -lt 3 ] || { [ "$cmake_major" -eq 3 ] && [ "$cmake_minor" -lt 26 ]; }; then
+  echo "IREE 3.11 requires CMake >= 3.26; found $cmake_version" >&2
+  exit 2
+fi
+cmake_prefix="$(cd "$(dirname "$(command -v cmake)")/.." && pwd)"
+export ANDROID_SDK_ROOT="$SDK" ANDROID_HOME="$SDK"; export PATH="$SDK/platform-tools:$PATH"
+printf 'sdk.dir=%s\ncmake.dir=%s\n' "$SDK" "$cmake_prefix" > local.properties
 ./tools/prepare_iree_runtime.sh
 if ! command -v iree-compile >/dev/null 2>&1; then
   python3 -m pip install --user iree-base-compiler==3.11.0
