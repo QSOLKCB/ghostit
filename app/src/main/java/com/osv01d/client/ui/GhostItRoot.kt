@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -19,7 +20,9 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +40,17 @@ import com.osv01d.client.persona.VoicePreset
 private val Green = Color(0xFF00FF41)
 private val Dim = Color(0xFF00AA2A)
 private val Black = Color(0xFF050505)
+private val GhostColors = darkColorScheme(
+    primary = Green,
+    onPrimary = Black,
+    secondary = Dim,
+    background = Black,
+    onBackground = Color.White,
+    surface = Black,
+    onSurface = Color.White,
+    outline = Dim,
+    error = Color.Red
+)
 
 @Composable
 fun GhostItRoot(vm: ChatViewModel) {
@@ -45,10 +59,15 @@ fun GhostItRoot(vm: ChatViewModel) {
     val tts by vm.ttsStatus.collectAsState()
     val kappa by vm.kappa.collectAsState()
     val tau by vm.tau.collectAsState()
+    val listState = rememberLazyListState()
     var input by remember { mutableStateOf("") }
     var showPersona by remember { mutableStateOf(false) }
 
-    MaterialTheme {
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    }
+
+    MaterialTheme(colorScheme = GhostColors) {
         if (showPersona) {
             PersonaPanel(vm, tts) { showPersona = false }
         } else {
@@ -61,7 +80,8 @@ fun GhostItRoot(vm: ChatViewModel) {
                     TextButton(onClick = { showPersona = true }) { Text("PERSONA", color = Green) }
                 }
                 LazyColumn(
-                    Modifier.fillMaxWidth().heightIn(min = 160.dp, max = 520.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp, max = 520.dp),
+                    state = listState,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(messages, key = { it.id }) { message ->
@@ -70,7 +90,11 @@ fun GhostItRoot(vm: ChatViewModel) {
                             Speaker.USER -> Color.White
                             else -> Green
                         }
-                        Text("${message.speaker}: ${message.text}", color = color, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        val speakerLabel = when (message.speaker) {
+                            Speaker.HECTOR -> persona.displayName.ifBlank { "Hector" }
+                            else -> message.speaker.name
+                        }
+                        Text("$speakerLabel: ${message.text}", color = color, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -78,7 +102,7 @@ fun GhostItRoot(vm: ChatViewModel) {
                         value = input,
                         onValueChange = { input = it },
                         modifier = Modifier.fillMaxWidth(0.76f),
-                        placeholder = { Text("Message Hector locally…") },
+                        placeholder = { Text("Message ${persona.displayName.ifBlank { "Hector" }} locally…") },
                         singleLine = true
                     )
                     Button(onClick = { vm.send(input); input = "" }, enabled = input.isNotBlank()) { Text("SEND") }
@@ -95,46 +119,56 @@ private fun PersonaPanel(vm: ChatViewModel, tts: String, onBack: () -> Unit) {
     var name by remember(config.displayName) { mutableStateOf(config.displayName) }
     var instructions by remember(config.customInstructions) { mutableStateOf(config.customInstructions) }
 
-    Column(Modifier.fillMaxSize().background(Black).padding(12.dp)) {
-        Text("PERSONA + VOICE", color = Green, fontFamily = FontFamily.Monospace, fontSize = 18.sp)
-        Text(tts, color = Dim, fontSize = 10.sp)
-        OutlinedTextField(name, { name = it.take(32) }, label = { Text("Name") }, singleLine = true)
-        Button(onClick = { vm.setName(name) }) { Text("SAVE NAME") }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().background(Black).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            Text("PERSONA + VOICE", color = Green, fontFamily = FontFamily.Monospace, fontSize = 18.sp)
+            Text(tts, color = Dim, fontSize = 10.sp)
+        }
+        item {
+            OutlinedTextField(name, { name = it.take(32) }, label = { Text("Name") }, singleLine = true)
+            Button(onClick = { vm.setName(name) }) { Text("SAVE NAME") }
+        }
 
-        Text("STYLE", color = Green)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            ResponseStyle.entries.take(3).forEach { style ->
-                FilterChip(config.style == style, { vm.setStyle(style) }, { Text(style.name, fontSize = 8.sp) })
+        item { Text("STYLE", color = Green) }
+        items(ResponseStyle.entries) { style ->
+            FilterChip(config.style == style, { vm.setStyle(style) }, { Text(style.name) })
+        }
+
+        item { Text("VOICE", color = Green) }
+        items(VoicePreset.entries) { voice ->
+            FilterChip(config.voice == voice, { vm.setVoice(voice) }, { Text(voice.name) })
+        }
+        item {
+            Text("COMEDY_CHAOS is an original caricature preset — not a real-person voice clone.", color = Dim, fontSize = 9.sp)
+        }
+
+        item {
+            Text("Pitch ${"%.2f".format(config.ttsPitch)}", color = Green)
+            Slider(config.ttsPitch, vm::setPitch, valueRange = .5f..1.5f)
+            Text("Rate ${"%.2f".format(config.ttsRate)}", color = Green)
+            Slider(config.ttsRate, vm::setRate, valueRange = .5f..1.5f)
+            Text("Volume ${"%.2f".format(config.ttsVolume)}", color = Green)
+            Slider(config.ttsVolume, vm::setVolume, valueRange = 0f..1f)
+            Row { Text("Auto-speak", color = Green); Switch(config.autoSpeak, vm::setAutoSpeak) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { vm.previewVoice() }) { Text("PREVIEW") }
+                OutlinedButton(onClick = { vm.stopVoice() }) { Text("STOP") }
             }
         }
 
-        Text("VOICE", color = Green)
-        LazyColumn(Modifier.heightIn(max = 180.dp)) {
-            items(VoicePreset.entries) { voice ->
-                FilterChip(config.voice == voice, { vm.setVoice(voice) }, { Text(voice.name) })
-            }
+        item {
+            OutlinedTextField(
+                value = instructions,
+                onValueChange = { instructions = it.take(2000) },
+                label = { Text("Local behavior instructions") },
+                supportingText = { Text("Recognizes concise, detailed, friendly, formal/professional, witty/humor without echoing your notes.") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Button(onClick = { vm.setInstructions(instructions) }) { Text("SAVE") }
+            TextButton(onClick = onBack) { Text("BACK", color = Green) }
         }
-        Text("COMEDY_CHAOS is an original caricature preset — not a real-person voice clone.", color = Dim, fontSize = 9.sp)
-
-        Text("Pitch ${"%.2f".format(config.ttsPitch)}", color = Green)
-        Slider(config.ttsPitch, vm::setPitch, valueRange = .5f..1.5f)
-        Text("Rate ${"%.2f".format(config.ttsRate)}", color = Green)
-        Slider(config.ttsRate, vm::setRate, valueRange = .5f..1.5f)
-        Text("Volume ${"%.2f".format(config.ttsVolume)}", color = Green)
-        Slider(config.ttsVolume, vm::setVolume, valueRange = 0f..1f)
-        Row { Text("Auto-speak", color = Green); Switch(config.autoSpeak, vm::setAutoSpeak) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { vm.previewVoice() }) { Text("PREVIEW") }
-            OutlinedButton(onClick = { vm.stopVoice() }) { Text("STOP") }
-        }
-
-        OutlinedTextField(
-            value = instructions,
-            onValueChange = { instructions = it.take(2000) },
-            label = { Text("Custom instructions") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Button(onClick = { vm.setInstructions(instructions) }) { Text("SAVE") }
-        TextButton(onClick = onBack) { Text("BACK", color = Green) }
     }
 }
