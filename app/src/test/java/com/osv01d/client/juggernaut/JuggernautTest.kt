@@ -26,9 +26,10 @@ class JuggernautTest {
     }
 
     @Test
-    fun ireePlanRejectsTraversalAndAcceptsMlir() {
+    fun ireePlanRejectsUnsafePathsAndAcceptsRelativeMlir() {
         val iree = IreeCapabilityPlane()
         assertFalse(iree.hostPlan("../secret.mlir").ok)
+        assertFalse(iree.hostPlan("/tmp/absolute.mlir").ok)
         val plan = iree.hostPlan("models/simple_abs.mlir")
         assertTrue(plan.ok)
         assertTrue("vmvx" in plan.command)
@@ -47,5 +48,13 @@ class JuggernautTest {
         val result = jug.mission("map local topology")
         assertTrue(result.startsWith("MISSION_OK"))
         assertTrue("receipt=" in result)
+    }
+
+    @Test
+    fun missionDoesNotClaimSuccessWhenReceiptPayloadExceedsBound() {
+        val jug = Juggernaut()
+        val result = jug.mission("x".repeat(1_990))
+        assertTrue(result.startsWith("MISSION_HOLD"))
+        assertTrue("exceeds 2000" in result)
     }
 }
