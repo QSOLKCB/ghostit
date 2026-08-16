@@ -1,7 +1,7 @@
 name: Android CI
 on: [pull_request]
 permissions:
-  contents: read
+  contents: write
 jobs:
   test-build:
     runs-on: ubuntu-latest
@@ -37,3 +37,35 @@ jobs:
         with:
           name: ghostit-1.11-debug-apk
           path: dist/
+      - name: Add reviewed APK ZIP to binaries directory
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          binary="GhostIT-1.11.0-debug.apk.zip"
+          checksum="GhostIT-1.11.0-debug.SHA256SUMS.txt"
+          source_meta="GhostIT-1.11.0-debug.SOURCE.txt"
+
+          cp "dist/$binary" "/tmp/$binary"
+          cp dist/SHA256SUMS.txt "/tmp/$checksum"
+
+          git fetch origin "$HEAD_REF"
+          if git cat-file -e "origin/$HEAD_REF:binaries/$binary" 2>/dev/null; then
+            echo "binaries/$binary already exists on the PR branch; leaving reviewed snapshot unchanged."
+            exit 0
+          fi
+
+          git switch -C "$HEAD_REF" "origin/$HEAD_REF"
+          mkdir -p binaries
+          cp "/tmp/$binary" "binaries/$binary"
+          cp "/tmp/$checksum" "binaries/$checksum"
+          printf 'source_commit=%s\nworkflow_run=%s\nartifact=ghostit-1.11-debug-apk\n' \
+            "$SOURCE_SHA" "$GITHUB_RUN_ID" > "binaries/$source_meta"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "binaries/$binary" "binaries/$checksum" "binaries/$source_meta"
+          git commit -m "Add compiled GhostIT 1.11 Android binary"
+          git push origin "HEAD:$HEAD_REF"
