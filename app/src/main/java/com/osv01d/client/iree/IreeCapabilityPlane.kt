@@ -17,8 +17,11 @@ class IreeCapabilityPlane {
 
     fun hostPlan(mlirPath: String): HostPlan {
         val path = mlirPath.trim()
-        val safe = path.matches(Regex("[A-Za-z0-9_./-]{1,160}")) && ".." !in path && path.endsWith(".mlir")
-        if (!safe) return HostPlan(false, "", "Rejected unsafe or non-MLIR path")
+        val safe = path.matches(Regex("[A-Za-z0-9_./-]{1,160}")) &&
+            ".." !in path &&
+            !path.startsWith("/") &&
+            path.endsWith(".mlir")
+        if (!safe) return HostPlan(false, "", "Rejected unsafe, absolute, or non-MLIR path")
         val out = path.removeSuffix(".mlir") + "_vmvx.vmfb"
         return HostPlan(
             true,
