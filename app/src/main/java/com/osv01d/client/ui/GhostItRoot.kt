@@ -1,5 +1,6 @@
 package com.osv01d.client.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,7 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -60,8 +61,10 @@ fun GhostItRoot(vm: ChatViewModel) {
     val kappa by vm.kappa.collectAsState()
     val tau by vm.tau.collectAsState()
     val listState = rememberLazyListState()
-    var input by remember { mutableStateOf("") }
-    var showPersona by remember { mutableStateOf(false) }
+    var input by rememberSaveable { mutableStateOf("") }
+    var showPersona by rememberSaveable { mutableStateOf(false) }
+
+    BackHandler(enabled = showPersona) { showPersona = false }
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
@@ -116,8 +119,8 @@ fun GhostItRoot(vm: ChatViewModel) {
 @Composable
 private fun PersonaPanel(vm: ChatViewModel, tts: String, onBack: () -> Unit) {
     val config by vm.persona.collectAsState()
-    var name by remember(config.displayName) { mutableStateOf(config.displayName) }
-    var instructions by remember(config.customInstructions) { mutableStateOf(config.customInstructions) }
+    var name by rememberSaveable(config.displayName) { mutableStateOf(config.displayName) }
+    var instructions by rememberSaveable(config.customInstructions) { mutableStateOf(config.customInstructions) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(Black).padding(12.dp),
@@ -164,7 +167,7 @@ private fun PersonaPanel(vm: ChatViewModel, tts: String, onBack: () -> Unit) {
                 value = instructions,
                 onValueChange = { instructions = it.take(2000) },
                 label = { Text("Local behavior instructions") },
-                supportingText = { Text("Recognizes concise, detailed, friendly, formal/professional, witty/humor without echoing your notes.") },
+                supportingText = { Text("Recognizes concise, detailed, friendly, formal/professional, witty/humor; common negations such as 'do not' and 'avoid' are respected.") },
                 modifier = Modifier.fillMaxWidth()
             )
             Button(onClick = { vm.setInstructions(instructions) }) { Text("SAVE") }

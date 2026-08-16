@@ -33,21 +33,37 @@ class HectorLocalEngine(private val police: GeometricPolice = GeometricPolice())
         val rules = instructions.lowercase()
         var result = base
 
-        if ("concise" in rules || "brief" in rules || "short" in rules) {
+        if (enabledRule(rules, "concise", "brief", "short")) {
             result = result.take(180).trimEnd()
         }
-        if ("detailed" in rules || "explain" in rules || "context" in rules) {
+        if (enabledRule(rules, "detailed", "explain", "context")) {
             result += " Local mode keeps processing on-device and applies the configured persona deterministically."
         }
-        if ("professional" in rules || "formal" in rules) {
+        if (enabledRule(rules, "professional", "formal")) {
             result = "Professional mode: $result"
-        } else if ("friendly" in rules || "warm" in rules) {
+        } else if (enabledRule(rules, "friendly", "warm")) {
             result = "Sure — $result"
         }
-        if ("witty" in rules || "humor" in rules || "funny" in rules) {
+        if (enabledRule(rules, "witty", "humor", "funny")) {
             result += " Bureaucracy has been notified."
         }
 
         return result.trim()
+    }
+
+    private fun enabledRule(rules: String, vararg keywords: String): Boolean = keywords.any { keyword ->
+        val matcher = Regex("\\b${Regex.escape(keyword)}\\b")
+        matcher.findAll(rules).any { match ->
+            val prefix = rules.substring(0, match.range.first).takeLast(48)
+            !NEGATION_SUFFIX.containsMatchIn(prefix)
+        }
+    }
+
+    private companion object {
+        // Natural-language instructions are allowed, but common negations must win.
+        // Examples: "do not be funny", "avoid concise answers", "never formal".
+        val NEGATION_SUFFIX = Regex(
+            "(?:\\bdo\\s+not\\b|\\bdon't\\b|\\bdont\\b|\\bnever\\b|\\bavoid\\b|\\bwithout\\b|\\bnot\\b|\\bno\\b)(?:\\s+[a-z0-9_-]+){0,4}\\s*$"
+        )
     }
 }
